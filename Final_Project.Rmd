@@ -1,0 +1,211 @@
+title: "Modeling and prediction for rating movies".
+
+Let's load the packages.
+
+```{r load-packages, message=FALSE}
+library(statsr)
+library(dplyr)
+library(ggplot2)
+library(GGally)
+```
+
+
+Let's load the data:
+
+```{r load-data, message=FALSE}
+load("movies.Rdata")
+```
+
+
+* * *
+## Part 1: Data
+
+
+This is an observational study which uses a historical dataset of movies and not an experiment. The goal is to find associations between variables.
+
+
+* * *
+## Part 2: Research question
+
+**Q: What variables of a movie  are associated with the movie's popularity measure in the IMDB rating ?**
+
+The IMDb offers a rating scale that allows users to rate films on a scale of one to ten. Our main goal will be to know which variables affect this rating, numerical and categorical.
+
+* * *
+## Part 3: Exploratory data analysis
+
+Let s take a view in the more common genre in the data:
+
+
+
+```{r score-dist}
+movies %>% 
+  group_by(genre) %>% 
+  summarise(count = n())
+```
+let s see the possible variables to affect this rating:
+
+```{r categories}
+names(movies)
+```
+and the description:
+
+```{r description}
+str(movies)
+```
+The possible caterories chosen to be part of the analysis will be:
+
+
+ **Numerical:**
+
+* runtime
+* critics_score
+* audience_score
+
+
+
+**Categorical:**
+
+* mpaa_rating
+* critics rating
+* audience_rating  
+* best_pic_win
+* best_actor_win
+* best_actress_win
+
+
+* * *
+## Part 4: Modeling
+
+For the model, a backward selection p-value criteria model selection process will be used. This is because it is a more time efficient method than the $R^{2}$ criteria and forward selection process when there are numerous variables in the model. As the model results will be used as more of a guideline rather than a strict value - a significance level of alpha = 0.25 will be used.
+
+
+The full model and summary statistics are given below:
+
+```{r, warning = F, fig.align = "center"}
+full_model = lm(imdb_rating ~ runtime + 
+                  critics_score + 
+                  audience_score + 
+                  mpaa_rating +  
+                  audience_rating  + 
+                  best_pic_win + 
+                  best_actor_win +
+                  best_actress_win, data = movies) 
+summary(full_model) 
+```
+
+The first category eliminated is mpa_rating due to its high p- value.
+
+```{r, warning = F, fig.align = "center"}
+second_model = lm(imdb_rating ~ runtime + 
+                  critics_score + 
+                  audience_score + 
+                  audience_rating  + 
+                  best_pic_win + 
+                  best_actor_win +
+                  best_actress_win, data = movies) 
+summary(second_model) 
+```
+The second category eliminated is best_pic.
+
+```{r, warning = F, fig.align = "center"}
+third_model = lm(imdb_rating ~ runtime + 
+                  critics_score + 
+                  audience_score + 
+                  audience_rating  + 
+                  best_actor_win +
+                  best_actress_win, data = movies) 
+summary(third_model) 
+```
+The third category eliminated is best_actor.
+
+```{r, warning = F, fig.align = "center"}
+fourth_model = lm(imdb_rating ~ runtime + 
+                  critics_score + 
+                  audience_score + 
+                  audience_rating  + 
+                  best_actress_win, data = movies) 
+summary(fourth_model) 
+```
+And finally best_actress:
+
+```{r, warning = F, fig.align = "center"}
+final_model = lm(imdb_rating ~ runtime + 
+                  critics_score + 
+                  audience_score + 
+                  audience_rating, data = movies) 
+summary(final_model) 
+```
+After these iterations, the categories that appear significant predictors of the movie imdb_rating are runtime, critics_score, audience_score and audience_rating. The categories dropped were best actor, actress and pic apparently these categories dont seem to be relevant with the significance level chosen.
+
+
+For the model to provide valid results, there are certain conditions that need to be met. These are:
+
+
+1. Linear relationships between (numerical) x and y
+2. Nearly normal residuals with mean 0
+3. Constant variability of residuals
+4. Independent residuals 
+
+
+The first condition has already been verified by the previous scatter plots with the numerical variables. The condition for nearly normal residuals can be checked using histogram and/or Q-Q plot of the residuals:
+
+```{r, fig.align = "center", warning = F}
+ggplot(data = final_model, aes(x = final_model$residuals)) + 
+  geom_histogram(color = 'darkgray', fill = 'darkblue', binwidth = 0.1)  + 
+  labs(x = "residuals", title = "Distribution of Residuals" )
+qqnorm(final_model$residuals, col = 'darkblue') 
+qqline(final_model$residuals, col = 'red')
+
+summary(final_model$residuals)
+```
+
+From the summary statistics the mean of the residuals can be seen to equal zero. This histogram is not perfectly normal, there are some outliers on the left-side but still it is roughly normal. The Q-Q plot also indicates an almost normal distribution, with some deviation from normality occurring on the left side, due to the outliers previously mentioned, It is shown that the condition 2 has been met.
+
+
+The variability of residuals can be checked by plotting the residuals against the predicted values from the model as seen below:
+
+
+```{r, fig.align = "center", warning = F}
+plot(final_model$residuals ~ final_model$fitted, 
+     main = 'Plot of Residuals vs Model Prediction from MLR Model', 
+     xlab = 'prediction', 
+     ylab = 'residuals', 
+     col = 'darkblue')
+```
+It is quite clear from this plot that the variability of residuals is not totally constant. The implications of this are that the values for the standard error are not entirely accurate and could therefore affect the accuracy of confidence intervals and the outcome of hypothesis tests from the model.
+
+To check if we have independent residuals (condition 4), we can plot the residuals as they appear in the data which would reveal any time series dependence:
+
+```{r, fig.align = "center", warning = F}
+plot(final_model$residuals, 
+     main = 'Plot of Residuals for MLR Model', 
+     xlab = 'index', 
+     ylab = 'residuals', 
+     col = 'darkblue') 
+```
+* * *
+## Part 5: Prediction
+
+The model can now be used to predict the running time of a movie not present in the sample data. The chosen test movie is Arrival (2016). The information for this movie was found [IMDB](https://www.imdb.com/title/tt2543164/), [Rotten Tomatoes](https://www.rottentomatoes.com/m/arrival_2016/), and [Box Office Mojo](http://www.boxofficemojo.com/movies/?id=arrival2016.htm).
+
+As mentioned previously, a 95% confidence interval will be used for the model prediction:
+                  
+```{r}
+arrival = data.frame(runtime = 116, critics_score = 94, 
+                     audience_score = 82, audience_rating = 'Upright')
+
+predict(final_model, 
+        arrival, 
+        interval = "prediction", 
+        level = 0.95)
+```
+
+Therefore, from the model, we are 95% confident that the IMDB score of the movie Arrival is between 6.72 and 8.54 points( actually is 7.9).
+
+* * *
+## Part 6: Conclusion
+
+In this instance, it is possible to check if the prediction of the model is correct or not. With the movie Arrival having a IMDB score of 7.8, the prediction in this case was correct. Overall we can conclude that the explanatory variables explored during this project are significant predictors of Imdb score, and can be used to predict it to a certain degree of accuracy. There are a couple of points to note however. Future research, and improvements to the model, could stem from learning how to transform the data appropriately so that the non-constancy of the data is negated in the model.
+
+## References
